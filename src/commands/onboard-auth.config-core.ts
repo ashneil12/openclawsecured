@@ -38,6 +38,7 @@ import {
 } from "./onboard-auth.credentials.js";
 import {
   buildMoonshotModelDefinition,
+  buildSupaSwarmModelDefinition,
   buildXaiModelDefinition,
   QIANFAN_BASE_URL,
   QIANFAN_DEFAULT_MODEL_REF,
@@ -46,6 +47,9 @@ import {
   MOONSHOT_CN_BASE_URL,
   MOONSHOT_DEFAULT_MODEL_ID,
   MOONSHOT_DEFAULT_MODEL_REF,
+  SUPASWARM_DEFAULT_MODEL_ID,
+  SUPASWARM_DEFAULT_MODEL_REF,
+  SUPASWARM_MODEL_IDS,
   XAI_BASE_URL,
   XAI_DEFAULT_MODEL_ID,
 } from "./onboard-auth.models.js";
@@ -868,6 +872,112 @@ export function applyQianfanConfig(cfg: OpenClawConfig): OpenClawConfig {
               }
             : undefined),
           primary: QIANFAN_DEFAULT_MODEL_REF,
+        },
+      },
+    },
+  };
+}
+
+/**
+ * Register all four SupaSwarm gear models under the `supaswarm` provider.
+ * The base URL is read from the stored auth profile metadata so each user's
+ * deployment URL is used (it was saved by setSupaSwarmConfig during onboarding).
+ */
+export function applySupaSwarmProviderConfig(
+  cfg: OpenClawConfig,
+  params?: { baseUrl?: string },
+): OpenClawConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[SUPASWARM_DEFAULT_MODEL_REF] = {
+    ...models[SUPASWARM_DEFAULT_MODEL_REF],
+    alias: models[SUPASWARM_DEFAULT_MODEL_REF]?.alias ?? "Swarm",
+  };
+
+  const providers = { ...cfg.models?.providers };
+  const existingProvider = providers.supaswarm;
+  const existingModels = Array.isArray(existingProvider?.models) ? existingProvider.models : [];
+  const allSwarmModels = SUPASWARM_MODEL_IDS.map(buildSupaSwarmModelDefinition);
+  const mergedModels = [
+    ...existingModels,
+    ...allSwarmModels.filter(
+      (m) => !existingModels.some((existing) => existing.id === m.id),
+    ),
+  ];
+
+  // Prefer explicitly passed URL, then what's already in the config.
+  const {
+    apiKey: existingApiKey,
+    baseUrl: existingBaseUrl,
+    ...existingProviderRest
+  } = (existingProvider ?? {}) as Record<string, unknown> as {
+    apiKey?: string;
+    baseUrl?: string;
+  };
+  const resolvedApiKey = typeof existingApiKey === "string" ? existingApiKey : undefined;
+  const normalizedApiKey = resolvedApiKey?.trim();
+  const resolvedBaseUrl = params?.baseUrl?.trim() || existingBaseUrl?.trim();
+
+  // If we have no URL yet (edge case before first save), bail out gracefully —
+  // same pattern as applyCloudflareAiGatewayProviderConfig.
+  if (!resolvedBaseUrl) {
+    return {
+      ...cfg,
+      agents: {
+        ...cfg.agents,
+        defaults: {
+          ...cfg.agents?.defaults,
+          models,
+        },
+      },
+    };
+  }
+
+  providers.supaswarm = {
+    ...existingProviderRest,
+    baseUrl: resolvedBaseUrl,
+    api: "openai-completions",
+    ...(normalizedApiKey ? { apiKey: normalizedApiKey } : {}),
+    models: mergedModels.length > 0 ? mergedModels : allSwarmModels,
+  };
+
+  return {
+    ...cfg,
+    agents: {
+      ...cfg.agents,
+      defaults: {
+        ...cfg.agents?.defaults,
+        models,
+      },
+    },
+    models: {
+      mode: cfg.models?.mode ?? "merge",
+      providers,
+    },
+  };
+}
+
+/**
+ * Apply SupaSwarm provider config AND set swarm-auto as the default model.
+ */
+export function applySupaSwarmConfig(
+  cfg: OpenClawConfig,
+  params?: { baseUrl?: string },
+): OpenClawConfig {
+  const next = applySupaSwarmProviderConfig(cfg, params);
+  const existingModel = next.agents?.defaults?.model;
+  return {
+    ...next,
+    agents: {
+      ...next.agents,
+      defaults: {
+        ...next.agents?.defaults,
+        model: {
+          ...(existingModel && "fallbacks" in (existingModel as Record<string, unknown>)
+            ? {
+                fallbacks: (existingModel as { fallbacks?: string[] }).fallbacks,
+              }
+            : undefined),
+          primary: SUPASWARM_DEFAULT_MODEL_REF,
         },
       },
     },

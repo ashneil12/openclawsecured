@@ -241,3 +241,25 @@ export function setXaiApiKey(key: string, agentDir?: string) {
     agentDir: resolveAuthAgentDir(agentDir),
   });
 }
+
+export { SUPASWARM_DEFAULT_MODEL_REF } from "./onboard-auth.models.js";
+
+/**
+ * Persist the SupaSwarm base URL (per-deployment) and API key.
+ * Base URL is stored as profile metadata so applySupaSwarmProviderConfig can
+ * restore it when rebuilding the provider config from stored credentials.
+ */
+export function setSupaSwarmConfig(baseUrl: string, key: string, agentDir?: string) {
+  upsertAuthProfile({
+    profileId: "supaswarm:default",
+    credential: {
+      type: "api_key",
+      provider: "supaswarm",
+      key: key.trim(),
+      metadata: {
+        baseUrl: baseUrl.replace(/\/+$/, ""), // strip trailing slashes
+      },
+    },
+    agentDir: resolveAuthAgentDir(agentDir),
+  });
+}

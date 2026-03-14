@@ -120,3 +120,38 @@ export function buildXaiModelDefinition(): ModelDefinitionConfig {
     maxTokens: XAI_DEFAULT_MAX_TOKENS,
   };
 }
+
+// SupaSwarm — OpenAI-compatible swarm backend (base URL is set per deployment)
+// The /v1 prefix is NOT included here; OpenClaw appends /v1/chat/completions.
+export const SUPASWARM_DEFAULT_MODEL_ID = "swarm-auto";
+export const SUPASWARM_DEFAULT_MODEL_REF = `supaswarm/${SUPASWARM_DEFAULT_MODEL_ID}`;
+export const SUPASWARM_DEFAULT_CONTEXT_WINDOW = 128000;
+export const SUPASWARM_DEFAULT_MAX_TOKENS = 8192;
+export const SUPASWARM_DEFAULT_COST = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+};
+
+const SUPASWARM_MODEL_CATALOG: Record<string, { name: string; hint: string }> = {
+  "swarm-auto": { name: "Swarm Auto", hint: "Planner picks gear automatically" },
+  "swarm-pulse": { name: "Swarm Pulse", hint: "Fast, 2 agents" },
+  "swarm-drive": { name: "Swarm Drive", hint: "4 agents" },
+  "swarm-overdrive": { name: "Swarm Overdrive", hint: "8 agents, highest quality" },
+};
+
+export const SUPASWARM_MODEL_IDS = Object.keys(SUPASWARM_MODEL_CATALOG);
+
+export function buildSupaSwarmModelDefinition(modelId: string): ModelDefinitionConfig {
+  const entry = SUPASWARM_MODEL_CATALOG[modelId];
+  return {
+    id: modelId,
+    name: entry?.name ?? `Swarm ${modelId}`,
+    reasoning: false,
+    input: ["text"],
+    cost: SUPASWARM_DEFAULT_COST,
+    contextWindow: SUPASWARM_DEFAULT_CONTEXT_WINDOW,
+    maxTokens: SUPASWARM_DEFAULT_MAX_TOKENS,
+  };
+}

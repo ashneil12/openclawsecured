@@ -38,6 +38,7 @@ export type AuthChoice =
   | "qwen-portal"
   | "xai-api-key"
   | "qianfan-api-key"
+  | "supaswarm-api-key"
   | "custom-api-key"
   | "skip";
 export type AuthChoiceGroupId =
@@ -58,6 +59,7 @@ export type AuthChoiceGroupId =
   | "qwen"
   | "qianfan"
   | "xai"
+  | "supaswarm"
   | "custom";
 export type GatewayAuthChoice = "token" | "password";
 export type ResetScope = "config" | "config+creds+sessions" | "full";

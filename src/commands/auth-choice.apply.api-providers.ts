@@ -27,6 +27,8 @@ import {
   applyOpencodeZenProviderConfig,
   applyOpenrouterConfig,
   applyOpenrouterProviderConfig,
+  applySupaSwarmConfig,
+  applySupaSwarmProviderConfig,
   applySyntheticConfig,
   applySyntheticProviderConfig,
   applyTogetherConfig,
@@ -35,6 +37,8 @@ import {
   applyVeniceProviderConfig,
   applyVercelAiGatewayConfig,
   applyVercelAiGatewayProviderConfig,
+  applyXaiConfig,
+  applyXaiProviderConfig,
   applyXiaomiConfig,
   applyXiaomiProviderConfig,
   applyZaiConfig,
@@ -43,11 +47,14 @@ import {
   KIMI_CODING_MODEL_REF,
   MOONSHOT_DEFAULT_MODEL_REF,
   OPENROUTER_DEFAULT_MODEL_REF,
+  SUPASWARM_DEFAULT_MODEL_REF,
   SYNTHETIC_DEFAULT_MODEL_REF,
   TOGETHER_DEFAULT_MODEL_REF,
   VENICE_DEFAULT_MODEL_REF,
   VERCEL_AI_GATEWAY_DEFAULT_MODEL_REF,
+  XAI_DEFAULT_MODEL_REF,
   XIAOMI_DEFAULT_MODEL_REF,
+  ZAI_DEFAULT_MODEL_REF,
   setCloudflareAiGatewayConfig,
   setQianfanApiKey,
   setGeminiApiKey,
@@ -55,13 +62,15 @@ import {
   setMoonshotApiKey,
   setOpencodeZenApiKey,
   setOpenrouterApiKey,
+  setSupaSwarmConfig,
   setSyntheticApiKey,
   setTogetherApiKey,
   setVeniceApiKey,
   setVercelAiGatewayApiKey,
   setXiaomiApiKey,
   setZaiApiKey,
-  ZAI_DEFAULT_MODEL_REF,
+  setXaiApiKey,
+  writeOAuthCredentials,
 } from "./onboard-auth.js";
 import { OPENCODE_ZEN_DEFAULT_MODEL } from "./opencode-zen-model-default.js";
 
@@ -116,6 +125,8 @@ export async function applyAuthChoiceApiProviders(
       authChoice = "opencode-zen";
     } else if (params.opts.tokenProvider === "qianfan") {
       authChoice = "qianfan-api-key";
+    } else if (params.opts.tokenProvider === "supaswarm") {
+      authChoice = "supaswarm-api-key";
     }
   }
 
@@ -914,6 +925,73 @@ export async function applyAuthChoiceApiProviders(
         applyDefaultConfig: applyQianfanConfig,
         applyProviderConfig: applyQianfanProviderConfig,
         noteDefault: QIANFAN_DEFAULT_MODEL_REF,
+        noteAgentModel,
+        prompter: params.prompter,
+      });
+      nextConfig = applied.config;
+      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
+    }
+    return { config: nextConfig, agentModelOverride };
+  }
+
+  if (authChoice === "supaswarm-api-key") {
+    let hasCredential = false;
+    let baseUrl = params.opts?.supaSwarmBaseUrl ?? process.env.SUPASWARM_BASE_URL;
+
+    // 1. Resolve Base URL
+    if (!baseUrl) {
+      const urlInput = await params.prompter.text({
+        message: "Enter SupaSwarm Base URL (e.g. http://localhost:8000, no trailing /v1)",
+        initialValue: "http://localhost:8000",
+      });
+      baseUrl = String(urlInput).trim();
+    }
+
+    // 2. Resolve API Key
+    if (params.opts?.token && params.opts?.tokenProvider === "supaswarm") {
+      setSupaSwarmConfig(baseUrl, normalizeApiKeyInput(params.opts.token), params.agentDir);
+      hasCredential = true;
+    }
+
+    if (!hasCredential) {
+      await params.prompter.note(
+        "SupaSwarm uses OpenAI-compatible Bearer auth. Enter your key or any placeholder if auth is disabled.",
+        "SUPASWARM",
+      );
+    }
+    const envKey = resolveEnvApiKey("supaswarm");
+    if (!hasCredential && envKey) {
+      const useExisting = await params.prompter.confirm({
+        message: `Use existing SUPASWARM_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+        initialValue: true,
+      });
+      if (useExisting) {
+        setSupaSwarmConfig(baseUrl, envKey.apiKey, params.agentDir);
+        hasCredential = true;
+      }
+    }
+    if (!hasCredential) {
+      const key = await params.prompter.text({
+        message: "Enter SupaSwarm API key",
+        validate: validateApiKeyInput,
+      });
+      setSupaSwarmConfig(baseUrl, normalizeApiKeyInput(String(key)), params.agentDir);
+    }
+
+    // 3. Apply profile and model config
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "supaswarm:default",
+      provider: "supaswarm",
+      mode: "api_key",
+    });
+    {
+      const applied = await applyDefaultModelChoice({
+        config: nextConfig,
+        setDefaultModel: params.setDefaultModel,
+        defaultModel: SUPASWARM_DEFAULT_MODEL_REF,
+        applyDefaultConfig: (cfg) => applySupaSwarmConfig(cfg, { baseUrl }),
+        applyProviderConfig: (cfg) => applySupaSwarmProviderConfig(cfg, { baseUrl }),
+        noteDefault: SUPASWARM_DEFAULT_MODEL_REF,
         noteAgentModel,
         prompter: params.prompter,
       });

@@ -566,6 +566,51 @@ export async function resolveImplicitProviders(params: {
     providers.qianfan = { ...buildQianfanProvider(), apiKey: qianfanKey };
   }
 
+  // SupaSwarm — base URL is per-deployment, stored in auth profile metadata.
+  const supaswarmProfiles = listProfilesForProvider(authStore, "supaswarm");
+  for (const profileId of supaswarmProfiles) {
+    const cred = authStore.profiles[profileId];
+    if (cred?.type !== "api_key") {
+      continue;
+    }
+    const storedBaseUrl = cred.metadata?.baseUrl?.trim();
+    // SUPASWARM_BASE_URL env var overrides the stored URL for easy local dev.
+    const envBaseUrl = process.env.SUPASWARM_BASE_URL?.trim();
+    const baseUrl = envBaseUrl || storedBaseUrl;
+    if (!baseUrl) {
+      continue;
+    }
+    const envApiKey = resolveEnvApiKeyVarName("supaswarm");
+    const apiKey = envApiKey ?? cred.key?.trim();
+    if (!apiKey) {
+      continue;
+    }
+    const swarmModels: ModelDefinitionConfig[] = [
+      "swarm-auto",
+      "swarm-pulse",
+      "swarm-drive",
+      "swarm-overdrive",
+    ].map((id) => ({
+      id,
+      name: id
+        .split("-")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" "),
+      reasoning: false,
+      input: ["text" as const],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 128000,
+      maxTokens: 8192,
+    }));
+    providers.supaswarm = {
+      baseUrl,
+      api: "openai-completions",
+      apiKey,
+      models: swarmModels,
+    };
+    break;
+  }
+
   return providers;
 }
 

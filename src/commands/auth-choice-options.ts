@@ -26,6 +26,7 @@ export type AuthChoiceGroupId =
   | "together"
   | "qianfan"
   | "xai"
+  | "supaswarm"
   | "custom";
 
 export type AuthChoiceGroup = {
@@ -150,6 +151,12 @@ const AUTH_CHOICE_GROUP_DEFS: {
     choices: ["cloudflare-ai-gateway-api-key"],
   },
   {
+    value: "supaswarm",
+    label: "SupaSwarm",
+    hint: "Local OpenAI-compatible swarm backend (swarm-auto, swarm-pulse, swarm-drive, swarm-overdrive)",
+    choices: ["supaswarm-api-key"],
+  },
+  {
     value: "custom",
     label: "Custom Provider",
     hint: "Any OpenAI or Anthropic compatible endpoint",
@@ -260,6 +267,11 @@ export function buildAuthChoiceOptions(params: {
     hint: "Faster, higher output cost",
   });
   options.push({ value: "custom-api-key", label: "Custom Provider" });
+  options.push({
+    value: "supaswarm-api-key",
+    label: "SupaSwarm API key",
+    hint: "Local/deployed OpenAI-compatible swarm backend",
+  });
 
   if (params.includeSkip) {
     options.push({ value: "skip", label: "Skip for now" });
